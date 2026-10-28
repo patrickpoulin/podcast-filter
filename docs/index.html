@@ -1,0 +1,787 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feed Sieve</title>
+<meta name="description" content="Make a podcast feed that only has the episodes you want.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --fog: #EEF1F6;
+  --paper: #FFFFFF;
+  --ink: #1C2440;
+  --ink-soft: #4F5A78;
+  --mute: #98A1B6;
+  --line: #D6DCE8;
+  --cobalt: #2F5BEA;
+  --cobalt-ink: #FFFFFF;
+  --cobalt-wash: #E3EAFF;
+  --keep: #13795B;
+  --keep-wash: #DDF3EA;
+  --drop: #B03A48;
+  --drop-wash: #F8E2E5;
+  --radius-sm: 6px;
+  --radius-lg: 14px;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fog: #121829; --paper: #1A2238; --ink: #E7EBF5; --ink-soft: #AAB3CB; --mute: #66708A;
+    --line: #2C3652; --cobalt: #7D9BFF; --cobalt-ink: #0F1730; --cobalt-wash: #23305A;
+    --keep: #5FD3A8; --keep-wash: #173A33; --drop: #F08C99; --drop-wash: #3E2230;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--fog); color: var(--ink);
+  font: 400 1rem/1.5 var(--body);
+}
+button, input { font: inherit; color: inherit; }
+a { color: var(--cobalt); }
+:focus-visible { outline: 3px solid var(--cobalt); outline-offset: 2px; border-radius: 4px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+[hidden] { display: none !important; }
+
+/* Top bar */
+.bar {
+  display: flex; align-items: center; gap: 12px;
+  max-width: 1180px; margin: 0 auto; padding: 18px 16px 6px;
+}
+.brand { font: 800 1.35rem/1 var(--display); letter-spacing: -0.02em; margin: 0; display: flex; align-items: center; gap: 10px; }
+.brand svg { width: 28px; height: 28px; flex: none; }
+.bar nav { margin-left: auto; display: flex; gap: 6px; }
+@media (max-width: 560px) {
+  .bar { flex-wrap: wrap; }
+  .bar nav { margin-left: -10px; width: 100%; }
+  .bar nav .btn { padding: 6px 10px; font-size: .9rem; }
+}
+.btn[aria-current="page"] { color: var(--ink); background: var(--paper); }
+
+.btn {
+  border: 1px solid var(--line); background: var(--paper); border-radius: 999px;
+  padding: 8px 16px; cursor: pointer; font-weight: 700; font-size: .95rem; line-height: 1.2;
+}
+.btn:hover { border-color: var(--ink-soft); }
+.btn.primary { background: var(--cobalt); border-color: var(--cobalt); color: var(--cobalt-ink); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { background: transparent; border-color: transparent; color: var(--ink-soft); }
+.btn.quiet:hover { color: var(--ink); background: var(--paper); }
+.btn.danger { color: var(--drop); }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--fog); border-color: var(--ink); }
+
+main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 64px; }
+
+.intro { max-width: 46ch; margin: 18px 0 26px; }
+.intro h2 { font: 700 clamp(2rem, 5vw, 3.1rem)/1.02 var(--display); letter-spacing: -0.03em; margin: 0 0 12px; }
+.intro p { margin: 0; color: var(--ink-soft); font-size: 1.08rem; }
+
+/* Search */
+.search { position: relative; max-width: 640px; }
+.search input, .field input {
+  width: 100%; border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.search input { font-size: 1.1rem; padding: 14px 16px; border-radius: 10px; }
+.search input:focus, .field input:focus { border-color: var(--cobalt); outline: none; box-shadow: 0 0 0 3px var(--cobalt-wash); }
+.results { list-style: none; margin: 10px 0 0; padding: 0; max-width: 640px; }
+.results li + li { border-top: 1px solid var(--line); }
+.result {
+  display: flex; gap: 14px; align-items: center; width: 100%; text-align: left;
+  background: none; border: 0; padding: 10px 6px; cursor: pointer; border-radius: 8px;
+}
+.result:hover { background: var(--paper); }
+.result[aria-disabled="true"] { cursor: default; opacity: .6; }
+.art { width: 56px; height: 56px; border-radius: 8px; object-fit: cover; flex: none; background: var(--line); }
+.result b { display: block; font-weight: 700; }
+.result span { color: var(--ink-soft); font-size: .92rem; }
+.hint { color: var(--ink-soft); font-size: .93rem; margin: 10px 0 0; }
+.linkish { background: none; border: 0; padding: 0; color: var(--cobalt); text-decoration: underline; cursor: pointer; }
+
+/* Editor */
+.editor { display: grid; grid-template-columns: minmax(0, 400px) minmax(0, 1fr); gap: 28px; align-items: start; }
+@media (max-width: 860px) { .editor { grid-template-columns: 1fr; } }
+.show { display: flex; gap: 14px; align-items: center; margin-bottom: 22px; }
+.show .art { width: 72px; height: 72px; border-radius: 10px; }
+.show h2 { font: 700 1.35rem/1.15 var(--display); margin: 0 0 4px; letter-spacing: -0.01em; }
+.show p { margin: 0; color: var(--ink-soft); font-size: .92rem; }
+
+.field { margin-bottom: 20px; }
+.field > label, .field > .label { display: block; font-weight: 700; margin-bottom: 6px; }
+.field .help { color: var(--ink-soft); font-size: .88rem; margin: 6px 0 0; }
+.chipbox {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius-sm);
+  padding: 7px; min-height: 48px; cursor: text;
+}
+.chipbox:focus-within { border-color: var(--cobalt); box-shadow: 0 0 0 3px var(--cobalt-wash); }
+.chipbox input { border: 0; padding: 4px 6px; flex: 1 1 120px; min-width: 100px; background: transparent; }
+.chipbox input:focus { outline: none; box-shadow: none; }
+.chip {
+  display: inline-flex; align-items: center; gap: 4px; border-radius: 999px;
+  padding: 3px 4px 3px 11px; font-size: .92rem; font-weight: 700;
+}
+.chip button { border: 0; background: none; cursor: pointer; width: 24px; height: 24px; border-radius: 999px; line-height: 1; font-size: 1.05rem; color: inherit; }
+.chip button:hover { background: rgba(127,127,127,.2); }
+.keep-chips .chip { background: var(--keep-wash); color: var(--keep); }
+.drop-chips .chip { background: var(--drop-wash); color: var(--drop); }
+.row2 { display: grid; grid-template-columns: 1fr 120px; gap: 12px; }
+
+.actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+.status { margin: 14px 0 0; font-size: .95rem; }
+.status.err { color: var(--drop); }
+
+/* The sieve: live episode preview */
+.sieve { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.sieve-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+.tally { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.tally strong { font: 800 2.4rem/1 var(--display); letter-spacing: -0.03em; color: var(--keep); font-variant-numeric: tabular-nums; }
+.tally span { color: var(--ink-soft); }
+.meter { height: 6px; background: var(--drop-wash); border-radius: 999px; margin-top: 12px; overflow: hidden; }
+.meter i { display: block; height: 100%; width: 0; background: var(--keep); border-radius: 999px; transition: width .25s ease; }
+.filterbar { display: flex; gap: 6px; margin-top: 14px; }
+.filterbar .btn { padding: 5px 12px; font-size: .85rem; }
+.eps { list-style: none; margin: 0; padding: 0; max-height: 62vh; overflow: auto; }
+.ep { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; padding: 11px 20px; border-bottom: 1px solid var(--line); transition: opacity .2s ease; }
+.ep:last-child { border-bottom: 0; }
+.ep .t { font-weight: 700; }
+.ep time { color: var(--ink-soft); font-size: .85rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ep.out { opacity: .42; }
+.ep.out .t { font-weight: 400; text-decoration: line-through; text-decoration-color: var(--drop); text-decoration-thickness: 2px; }
+.ep mark { background: var(--keep-wash); color: inherit; border-radius: 3px; padding: 0 2px; }
+.ep.out mark { background: var(--drop-wash); }
+.ep .why { grid-column: 1 / -1; font-size: .82rem; color: var(--drop); }
+.empty { padding: 28px 20px; color: var(--ink-soft); }
+
+/* Saved result */
+.done { background: var(--paper); border: 2px solid var(--keep); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 26px; }
+.done h3 { font: 700 1.25rem/1.2 var(--display); margin: 0 0 8px; }
+.urlbox { display: flex; gap: 8px; margin: 12px 0; }
+.urlbox input { flex: 1; min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .88rem; border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 10px 12px; background: var(--fog); }
+.done ol { margin: 10px 0 0; padding-left: 20px; color: var(--ink-soft); }
+.live { font-weight: 700; }
+.live.ready { color: var(--keep); }
+
+/* Your feeds */
+.feeds { list-style: none; margin: 0; padding: 0; max-width: 820px; }
+.feed { display: grid; grid-template-columns: 56px 1fr; gap: 14px; padding: 16px 0; border-bottom: 1px solid var(--line); }
+.feed h3 { font: 700 1.1rem/1.2 var(--display); margin: 0 0 4px; }
+.feed .rules { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 10px; }
+.feed .rules .chip { padding: 2px 10px; font-size: .82rem; }
+.feed .actions { margin: 0; }
+.feed .btn { padding: 5px 12px; font-size: .85rem; }
+.section-title { font: 700 1.6rem/1.1 var(--display); letter-spacing: -0.02em; margin: 22px 0 16px; }
+
+/* Settings dialog */
+dialog { border: 0; border-radius: var(--radius-lg); padding: 0; max-width: min(520px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); }
+dialog::backdrop { background: rgba(12, 18, 36, .55); }
+.dlg { padding: 22px; }
+.dlg h2 { font: 700 1.4rem/1.2 var(--display); margin: 0 0 6px; }
+.dlg > p { color: var(--ink-soft); margin: 0 0 18px; font-size: .95rem; }
+.dlg ol { padding-left: 20px; margin: 0 0 18px; font-size: .93rem; color: var(--ink-soft); }
+.check { display: flex; gap: 8px; align-items: center; font-size: .93rem; margin-bottom: 18px; }
+
+.toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--ink); color: var(--fog); padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: .93rem; z-index: 10; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1 class="brand">
+    <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/><g fill="var(--cobalt)"><circle cx="11" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="21" cy="12" r="2"/><circle cx="13.5" cy="17" r="2"/><circle cx="18.5" cy="17" r="2"/><circle cx="16" cy="22" r="2"/></g></svg>
+    Feed Sieve
+  </h1>
+  <nav aria-label="Main">
+    <button class="btn quiet" id="navNew" type="button">New feed</button>
+    <button class="btn quiet" id="navFeeds" type="button">Your feeds</button>
+    <button class="btn quiet" id="navSettings" type="button">Settings</button>
+  </nav>
+</header>
+
+<main>
+  <!-- Search -->
+  <section id="viewSearch">
+    <div class="intro">
+      <h2>Only the episodes you actually want.</h2>
+      <p>Find a show, choose words that episode titles must or mustn't contain, and get a feed URL for your podcast app.</p>
+    </div>
+    <form class="search" id="searchForm" role="search">
+      <label for="q" class="sr-only">Search podcasts</label>
+      <input id="q" type="search" placeholder="Search podcasts, e.g. The Herd" autocomplete="off">
+    </form>
+    <p class="hint">Have the feed's address? <button type="button" class="linkish" id="pasteToggle">Paste an RSS URL</button></p>
+    <form id="pasteForm" class="search" hidden>
+      <label for="pasteUrl" class="sr-only">RSS feed URL</label>
+      <input id="pasteUrl" type="url" placeholder="https://…/podcast.rss">
+      <div class="actions" style="margin-top:10px"><button class="btn primary" type="submit">Use this feed</button></div>
+    </form>
+    <p class="status" id="searchStatus" aria-live="polite"></p>
+    <ul class="results" id="results"></ul>
+  </section>
+
+  <!-- Editor -->
+  <section id="viewEditor" hidden>
+    <div id="doneBox"></div>
+    <div class="editor">
+      <div>
+        <div class="show">
+          <img class="art" id="edArt" alt="">
+          <div>
+            <h2 id="edShow"></h2>
+            <p id="edSource"></p>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="label" id="incLabel">Keep episodes whose title contains</span>
+          <div class="chipbox keep-chips" id="incBox" data-kind="include">
+            <input aria-labelledby="incLabel" placeholder="Type a word, press Enter">
+          </div>
+          <p class="help">Any one match is enough. Leave empty to keep everything.</p>
+        </div>
+
+        <div class="field">
+          <span class="label" id="excLabel">Skip episodes whose title contains</span>
+          <div class="chipbox drop-chips" id="excBox" data-kind="exclude">
+            <input aria-labelledby="excLabel" placeholder="Type a word, press Enter">
+          </div>
+          <p class="help">Checked after the keep list. Capital letters don't matter.</p>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="edTitle">Name in your podcast app</label>
+            <input id="edTitle" type="text" maxlength="120">
+          </div>
+          <div class="field">
+            <label for="edMax">Newest</label>
+            <input id="edMax" type="number" min="0" max="2000" step="1" value="100" inputmode="numeric">
+          </div>
+        </div>
+        <p class="help" style="margin:-12px 0 20px;color:var(--ink-soft);font-size:.88rem">"Newest" caps how many matching episodes the feed keeps. 0 keeps all of them.</p>
+
+        <div class="actions">
+          <button class="btn primary" id="saveBtn" type="button">Save feed</button>
+          <button class="btn quiet" id="cancelBtn" type="button">Cancel</button>
+        </div>
+        <p class="status" id="saveStatus" aria-live="polite"></p>
+      </div>
+
+      <div class="sieve" aria-labelledby="tallyText">
+        <div class="sieve-head">
+          <div class="tally"><strong id="tallyNum">0</strong><span id="tallyText">episodes kept</span></div>
+          <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
+          <div class="filterbar" role="group" aria-label="Show">
+            <button class="btn" type="button" data-show="all" aria-pressed="true">All</button>
+            <button class="btn" type="button" data-show="kept" aria-pressed="false">Kept</button>
+            <button class="btn" type="button" data-show="dropped" aria-pressed="false">Skipped</button>
+          </div>
+        </div>
+        <ul class="eps" id="eps"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Your feeds -->
+  <section id="viewFeeds" hidden>
+    <h2 class="section-title">Your feeds</h2>
+    <p class="status" id="feedsStatus" aria-live="polite"></p>
+    <ul class="feeds" id="feedList"></ul>
+  </section>
+</main>
+
+<dialog id="settings">
+  <form class="dlg" method="dialog" id="settingsForm">
+    <h2>Connect to GitHub</h2>
+    <p>Saving a feed updates the list in your GitHub repository. GitHub then builds the filtered feed within a minute or two.</p>
+    <ol>
+      <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub's new token page</a>.</li>
+      <li>Under Repository access choose <b>Only select repositories</b> and pick this repo.</li>
+      <li>Under Permissions, set <b>Contents</b> to <b>Read and write</b>. Generate it and paste it here.</li>
+    </ol>
+    <div class="row2" style="grid-template-columns:1fr 1fr">
+      <div class="field"><label for="sOwner">GitHub username</label><input id="sOwner" autocomplete="off" required></div>
+      <div class="field"><label for="sRepo">Repository</label><input id="sRepo" autocomplete="off" required></div>
+    </div>
+    <div class="field"><label for="sToken">Access token</label><input id="sToken" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+    <label class="check"><input type="checkbox" id="sRemember" checked> Remember on this device</label>
+    <div class="actions">
+      <button class="btn primary" value="save" id="settingsSave">Save settings</button>
+      <button class="btn quiet" value="cancel" formnovalidate>Cancel</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  "use strict";
+  const $ = (s, r = document) => r.querySelector(s);
+  const CONFIG_PATH = "docs/feeds.json";
+
+  // ---------- storage (never required) ----------
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    del(k) { try { localStorage.removeItem(k); } catch {} },
+  };
+
+  // ---------- settings ----------
+  function detectRepo() {
+    const h = location.hostname.toLowerCase();
+    if (!h.endsWith(".github.io")) return {};
+    const owner = h.slice(0, -".github.io".length);
+    const seg = location.pathname.split("/").filter(Boolean)[0];
+    const repo = seg && !seg.includes(".") ? seg : `${owner}.github.io`;
+    return { owner, repo };
+  }
+  const settings = (() => {
+    const d = detectRepo();
+    return {
+      owner: store.get("fs.owner") || d.owner || "",
+      repo: store.get("fs.repo") || d.repo || "",
+      token: store.get("fs.token") || "",
+    };
+  })();
+  const onPages = () => location.hostname.toLowerCase().endsWith(".github.io");
+
+  function feedUrl(id) {
+    if (onPages()) return new URL(`feeds/${id}.xml`, location.href).href;
+    const o = settings.owner.toLowerCase();
+    const root = settings.repo.toLowerCase() === `${o}.github.io` ? "" : `/${settings.repo}`;
+    return `https://${o}.github.io${root}/feeds/${id}.xml`;
+  }
+
+  // ---------- small helpers ----------
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const norm = s => String(s).trim().toLowerCase();
+  function slugify(s) {
+    return norm(s).normalize("NFKD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "feed";
+  }
+  function toast(msg) {
+    const t = $("#toast"); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast._t); toast._t = setTimeout(() => (t.hidden = true), 2400);
+  }
+  async function copy(text) {
+    try { await navigator.clipboard.writeText(text); toast("Copied"); }
+    catch { toast("Select the address and copy it"); }
+  }
+  const fmtDate = d => d ? new Date(d).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "";
+
+  // ---------- views ----------
+  const views = { search: $("#viewSearch"), editor: $("#viewEditor"), feeds: $("#viewFeeds") };
+  function show(name) {
+    for (const [k, el] of Object.entries(views)) el.hidden = k !== name;
+    $("#navNew").setAttribute("aria-current", name === "search" ? "page" : "false");
+    $("#navFeeds").setAttribute("aria-current", name === "feeds" ? "page" : "false");
+    window.scrollTo(0, 0);
+  }
+
+  // ---------- Apple search (works in the browser, no key needed) ----------
+  let searchSeq = 0;
+  async function searchPodcasts(term) {
+    const seq = ++searchSeq;
+    const st = $("#searchStatus"), list = $("#results");
+    if (!term.trim()) { list.innerHTML = ""; st.textContent = ""; return; }
+    st.className = "status"; st.textContent = "Searching…";
+    try {
+      const u = `https://itunes.apple.com/search?media=podcast&entity=podcast&limit=20&term=${encodeURIComponent(term)}`;
+      const data = await (await fetch(u)).json();
+      if (seq !== searchSeq) return;
+      const rows = data.results || [];
+      st.textContent = rows.length ? "" : `No shows found for "${term}". Try fewer words.`;
+      list.innerHTML = rows.map((r, i) => {
+        const ok = !!r.feedUrl;
+        return `<li><button type="button" class="result" data-i="${i}" ${ok ? "" : 'aria-disabled="true"'}>
+          <img class="art" src="${esc(r.artworkUrl100 || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")}" alt="" loading="lazy">
+          <div><b>${esc(r.collectionName)}</b><span>${esc(r.artistName)}${ok ? "" : " (Apple-only show, can't be filtered)"}</span></div>
+        </button></li>`;
+      }).join("");
+      list.onclick = e => {
+        const b = e.target.closest(".result"); if (!b || b.getAttribute("aria-disabled")) return;
+        const r = rows[+b.dataset.i];
+        openEditor({
+          show_name: r.collectionName, itunes_id: r.collectionId, artwork: r.artworkUrl600 || r.artworkUrl100 || "",
+          source_url: r.feedUrl, include: [], exclude: [], title: "", max_items: 100,
+        });
+      };
+    } catch {
+      if (seq === searchSeq) { st.className = "status err"; st.textContent = "Search isn't reachable right now. Check your connection and try again."; }
+    }
+  }
+  let debounce;
+  $("#q").addEventListener("input", e => { clearTimeout(debounce); debounce = setTimeout(() => searchPodcasts(e.target.value), 350); });
+  $("#searchForm").addEventListener("submit", e => { e.preventDefault(); searchPodcasts($("#q").value); });
+  $("#pasteToggle").addEventListener("click", () => { const f = $("#pasteForm"); f.hidden = !f.hidden; if (!f.hidden) $("#pasteUrl").focus(); });
+  $("#pasteForm").addEventListener("submit", e => {
+    e.preventDefault();
+    const u = $("#pasteUrl").value.trim();
+    if (!/^https?:\/\//i.test(u)) { $("#searchStatus").className = "status err"; $("#searchStatus").textContent = "Paste a full address starting with https://"; return; }
+    openEditor({ show_name: "Pasted feed", artwork: "", source_url: u, include: [], exclude: [], title: "", max_items: 100 });
+  });
+
+  // ---------- editor ----------
+  let current = null;          // the feed entry being edited
+  let editingId = null;        // id of an existing feed, or null for a new one
+  let episodes = null;         // [{title, date}] or null when no preview
+  let showMode = "all";
+
+  const chips = { include: [], exclude: [] };
+  function renderChips(kind) {
+    const box = kind === "include" ? $("#incBox") : $("#excBox");
+    box.querySelectorAll(".chip").forEach(c => c.remove());
+    const input = box.querySelector("input");
+    chips[kind].forEach((w, i) => {
+      const c = document.createElement("span");
+      c.className = "chip";
+      c.innerHTML = `${esc(w)}<button type="button" aria-label="Remove ${esc(w)}" data-i="${i}">×</button>`;
+      box.insertBefore(c, input);
+    });
+  }
+  function addChip(kind, word) {
+    const w = norm(word);
+    if (!w || chips[kind].includes(w)) return;
+    chips[kind].push(w); renderChips(kind); updatePreview(); suggestTitle();
+  }
+  for (const box of [$("#incBox"), $("#excBox")]) {
+    const kind = box.dataset.kind, input = box.querySelector("input");
+    box.addEventListener("click", e => {
+      const x = e.target.closest(".chip button");
+      if (x) { chips[kind].splice(+x.dataset.i, 1); renderChips(kind); updatePreview(); suggestTitle(); input.focus(); return; }
+      input.focus();
+    });
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter" || e.key === ",") { e.preventDefault(); addChip(kind, input.value); input.value = ""; }
+      else if (e.key === "Backspace" && !input.value && chips[kind].length) { chips[kind].pop(); renderChips(kind); updatePreview(); suggestTitle(); }
+    });
+    input.addEventListener("blur", () => { if (input.value.trim()) { addChip(kind, input.value); input.value = ""; } });
+    input.addEventListener("input", updatePreview); // preview the word being typed
+  }
+
+  let titleTouched = false;
+  $("#edTitle").addEventListener("input", () => (titleTouched = true));
+  function suggestTitle() {
+    if (titleTouched || editingId) return;
+    const w = chips.include[0];
+    const cap = s => s.replace(/\b\w/g, c => c.toUpperCase());
+    $("#edTitle").value = w ? `${current.show_name} - ${cap(w)}` : `${current.show_name} (filtered)`;
+  }
+
+  // Same rule as filter_feed.py: keep if any include matches (or none set), then drop if any exclude matches.
+  function liveTerms(kind) {
+    const box = kind === "include" ? $("#incBox") : $("#excBox");
+    const typing = norm(box.querySelector("input").value);
+    return typing && !chips[kind].includes(typing) ? [...chips[kind], typing] : chips[kind];
+  }
+  function judge(title, inc, exc) {
+    const t = title.toLowerCase();
+    if (inc.length && !inc.some(w => t.includes(w))) return { keep: false, why: "" };
+    const hit = exc.find(w => t.includes(w));
+    if (hit) return { keep: false, why: `Skipped: contains "${hit}"` };
+    return { keep: true, why: "" };
+  }
+  function highlight(title, words) {
+    if (!words.length) return esc(title);
+    const re = new RegExp(`(${words.map(escRe).join("|")})`, "gi");
+    return title.split(re).map((part, i) => i % 2 ? `<mark>${esc(part)}</mark>` : esc(part)).join("");
+  }
+
+  function updatePreview() {
+    const list = $("#eps");
+    if (!episodes) {
+      $("#tallyNum").textContent = "–";
+      $("#tallyText").textContent = "preview unavailable";
+      $("#meterFill").style.width = "0";
+      list.innerHTML = `<li class="empty">${episodes === null && current?.itunes_id ? "Loading episodes…" : "There's no preview for a pasted feed. Your keywords are still applied when GitHub builds it."}</li>`;
+      return;
+    }
+    const inc = liveTerms("include"), exc = liveTerms("exclude");
+    const max = Math.max(0, parseInt($("#edMax").value, 10) || 0);
+    let kept = 0;
+    const rows = episodes.map(ep => {
+      const j = judge(ep.title, inc, exc);
+      if (j.keep) { kept++; if (max && kept > max) { j.keep = false; j.why = `Past the newest ${max}`; } }
+      return { ep, j };
+    });
+    const shown = Math.min(kept, max || kept);
+    $("#tallyNum").textContent = shown;
+    $("#tallyText").textContent = `of the latest ${episodes.length} episodes kept`;
+    $("#meterFill").style.width = `${episodes.length ? (shown / episodes.length) * 100 : 0}%`;
+    const visible = rows.filter(r => showMode === "all" || (showMode === "kept") === r.j.keep);
+    list.innerHTML = visible.length ? visible.map(({ ep, j }) => `
+      <li class="ep ${j.keep ? "" : "out"}">
+        <span class="t">${highlight(ep.title, [...inc, ...exc])}</span>
+        <time datetime="${esc(ep.date || "")}">${esc(fmtDate(ep.date))}</time>
+        ${j.why ? `<span class="why">${esc(j.why)}</span>` : ""}
+      </li>`).join("")
+      : `<li class="empty">${showMode === "kept" ? "Nothing matches yet. Try a shorter word, or check the spelling against the titles in All." : "Nothing is being skipped."}</li>`;
+  }
+  $("#edMax").addEventListener("input", updatePreview);
+  $(".filterbar").addEventListener("click", e => {
+    const b = e.target.closest("button[data-show]"); if (!b) return;
+    showMode = b.dataset.show;
+    document.querySelectorAll(".filterbar button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    updatePreview();
+  });
+
+  async function loadEpisodes(itunesId) {
+    episodes = null; updatePreview();
+    try {
+      const u = `https://itunes.apple.com/lookup?id=${encodeURIComponent(itunesId)}&media=podcast&entity=podcastEpisode&limit=200`;
+      const data = await (await fetch(u)).json();
+      if (current?.itunes_id !== itunesId) return;
+      episodes = (data.results || []).filter(r => r.wrapperType === "podcastEpisode" || r.kind === "podcast-episode")
+        .map(r => ({ title: r.trackName || "", date: r.releaseDate }))
+        .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+    } catch { episodes = undefined; }
+    updatePreview();
+  }
+
+  function openEditor(entry, existingId = null) {
+    current = { ...entry };
+    editingId = existingId;
+    titleTouched = !!existingId;
+    chips.include = [...(entry.include || [])];
+    chips.exclude = [...(entry.exclude || [])];
+    renderChips("include"); renderChips("exclude");
+    $("#edArt").src = entry.artwork || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    $("#edShow").textContent = entry.show_name || "Podcast";
+    $("#edSource").textContent = existingId ? "Editing a saved feed" : new URL(entry.source_url).hostname;
+    $("#edTitle").value = entry.title || "";
+    $("#edMax").value = entry.max_items ?? 100;
+    $("#saveBtn").textContent = existingId ? "Save changes" : "Save feed";
+    $("#saveStatus").textContent = "";
+    $("#doneBox").innerHTML = "";
+    suggestTitle();
+    show("editor");
+    $("#incBox input").focus();
+    if (entry.itunes_id) loadEpisodes(entry.itunes_id); else { episodes = undefined; updatePreview(); }
+  }
+  $("#cancelBtn").addEventListener("click", () => show(editingId ? "feeds" : "search"));
+
+  // ---------- GitHub storage of feeds.json ----------
+  const b64decode = s => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\s/g, "")), c => c.charCodeAt(0)));
+  function b64encode(str) {
+    const bytes = new TextEncoder().encode(str); let bin = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return btoa(bin);
+  }
+  function gh(path, opts = {}) {
+    return fetch(`https://api.github.com/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/${path}`, {
+      ...opts,
+      headers: { Accept: "application/vnd.github+json", Authorization: `Bearer ${settings.token}`, "X-GitHub-Api-Version": "2022-11-28", ...(opts.headers || {}) },
+    });
+  }
+  function ghError(res) {
+    if (res.status === 401) return "GitHub didn't accept the access token. Paste a new one in Settings.";
+    if (res.status === 403) return "The token can't change this repository. Give it Contents: Read and write for this repo.";
+    if (res.status === 404) return `Couldn't find ${settings.owner}/${settings.repo}, or the token can't see it. Check Settings.`;
+    return `GitHub returned an error (${res.status}). Try again in a minute.`;
+  }
+  async function readConfig() {
+    const res = await gh(`contents/${CONFIG_PATH}?t=${Date.now()}`);
+    if (res.status === 404) {
+      const repoRes = await gh("");
+      if (!repoRes.ok) throw new Error(ghError(repoRes));
+      return { feeds: [], sha: null };
+    }
+    if (!res.ok) throw new Error(ghError(res));
+    const j = await res.json();
+    const parsed = JSON.parse(b64decode(j.content) || "{}");
+    return { feeds: parsed.feeds || [], sha: j.sha };
+  }
+  async function writeConfig(feeds, sha, message) {
+    const body = { message, content: b64encode(JSON.stringify({ feeds }, null, 2) + "\n") };
+    if (sha) body.sha = sha;
+    const res = await gh(`contents/${CONFIG_PATH}`, { method: "PUT", body: JSON.stringify(body) });
+    if (res.status === 409 || res.status === 422) return false; // someone else changed it; caller retries
+    if (!res.ok) throw new Error(ghError(res));
+    return true;
+  }
+  async function updateConfig(mutate, message) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const { feeds, sha } = await readConfig();
+      const next = mutate(feeds.map(f => ({ ...f })));
+      if (await writeConfig(next, sha, message)) return next;
+    }
+    throw new Error("The feed list kept changing while saving. Reload the page and try again.");
+  }
+  const haveSettings = () => settings.owner && settings.repo && settings.token;
+
+  // ---------- save ----------
+  $("#saveBtn").addEventListener("click", async () => {
+    // pick up a word still sitting in an input
+    for (const box of [$("#incBox"), $("#excBox")]) { const i = box.querySelector("input"); if (i.value.trim()) { addChip(box.dataset.kind, i.value); i.value = ""; } }
+    const st = $("#saveStatus");
+    if (!haveSettings()) { openSettings(true); return; }
+    const title = $("#edTitle").value.trim() || current.show_name;
+    const entry = {
+      ...current, title,
+      include: [...chips.include], exclude: [...chips.exclude],
+      max_items: Math.max(0, parseInt($("#edMax").value, 10) || 0),
+    };
+    if (episodes && !episodes.some(ep => judge(ep.title, entry.include, entry.exclude).keep)) {
+      st.className = "status err";
+      st.textContent = "None of the recent episodes match these keywords, so the feed would be empty. Adjust the keywords first.";
+      return;
+    }
+    const btn = $("#saveBtn"); btn.disabled = true;
+    st.className = "status"; st.textContent = "Saving to GitHub…";
+    try {
+      let savedId;
+      await updateConfig(feeds => {
+        if (editingId) {
+          savedId = editingId;
+          const i = feeds.findIndex(f => f.id === editingId);
+          if (i >= 0) feeds[i] = { ...entry, id: editingId }; else feeds.push({ ...entry, id: editingId });
+        } else {
+          const base = slugify(title); let id = base, n = 2;
+          while (feeds.some(f => f.id === id)) id = `${base}-${n++}`;
+          savedId = id; feeds.push({ ...entry, id });
+        }
+        return feeds;
+      }, `${editingId ? "Update" : "Add"} feed: ${title}`);
+      st.textContent = "";
+      showDone(savedId, title, !editingId);
+      editingId = savedId; current = { ...entry, id: savedId };
+      $("#saveBtn").textContent = "Save changes";
+    } catch (e) {
+      st.className = "status err"; st.textContent = e.message;
+    } finally { btn.disabled = false; }
+  });
+
+  function showDone(id, title, isNew) {
+    const url = feedUrl(id);
+    const appUrl = "podcast://" + url.replace(/^https?:\/\//, "");
+    $("#doneBox").innerHTML = `
+      <div class="done" role="status">
+        <h3>${isNew ? "Feed saved" : "Changes saved"}: ${esc(title)}</h3>
+        <span class="live" id="liveState">${isNew ? "GitHub is building it, usually 1–2 minutes…" : "GitHub is rebuilding it, usually 1–2 minutes."}</span>
+        <div class="urlbox">
+          <label class="sr-only" for="doneUrl">Feed URL</label>
+          <input id="doneUrl" readonly value="${esc(url)}">
+          <button class="btn primary" type="button" id="doneCopy">Copy URL</button>
+        </div>
+        <ol>
+          <li>On your iPhone, <a href="${esc(appUrl)}">open it in Apple Podcasts</a>, or go to Library, tap ⋯, choose Follow a Show by URL and paste it.</li>
+          <li>Turn on automatic downloads for it, and unfollow the original show.</li>
+        </ol>
+      </div>`;
+    $("#doneCopy").onclick = () => copy(url);
+    $("#doneUrl").onfocus = e => e.target.select();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (isNew) waitUntilLive(url);
+  }
+  async function waitUntilLive(url) {
+    const started = Date.now();
+    while (Date.now() - started < 6 * 60 * 1000) {
+      await new Promise(r => setTimeout(r, 10000));
+      const el = $("#liveState"); if (!el || $("#doneUrl")?.value !== url) return;
+      try {
+        const res = await fetch(`${url}?t=${Date.now()}`, { method: "HEAD", cache: "no-store" });
+        if (res.ok) { el.textContent = "Live. You can subscribe now."; el.classList.add("ready"); return; }
+      } catch { /* not on the same site; can't check */ return void (el.textContent = "Give it a couple of minutes before subscribing."); }
+    }
+    const el = $("#liveState");
+    if (el) el.textContent = "Still building. Check the Actions tab in your repo if it doesn't appear soon.";
+  }
+
+  // ---------- your feeds ----------
+  async function loadFeeds() {
+    const st = $("#feedsStatus"), list = $("#feedList");
+    st.className = "status"; st.textContent = "Loading…"; list.innerHTML = "";
+    let feeds;
+    try {
+      if (haveSettings()) feeds = (await readConfig()).feeds;
+      else {
+        const res = await fetch(`feeds.json?t=${Date.now()}`, { cache: "no-store" });
+        feeds = res.ok ? (await res.json()).feeds || [] : [];
+      }
+    } catch (e) { st.className = "status err"; st.textContent = e.message; return; }
+    if (!feeds.length) {
+      st.innerHTML = `You haven't made any feeds yet. <button type="button" class="linkish" id="emptyNew">Find a show to start.</button>`;
+      $("#emptyNew").onclick = () => { show("search"); $("#q").focus(); };
+      return;
+    }
+    st.textContent = haveSettings() ? "" : "Connect GitHub in Settings to edit or delete feeds.";
+    list.innerHTML = feeds.map((f, i) => `
+      <li class="feed">
+        <img class="art" src="${esc(f.artwork || "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")}" alt="">
+        <div>
+          <h3>${esc(f.title || f.id)}</h3>
+          <div class="rules">
+            ${(f.include || []).map(w => `<span class="chip" style="background:var(--keep-wash);color:var(--keep)">keep: ${esc(w)}</span>`).join("")}
+            ${(f.exclude || []).map(w => `<span class="chip" style="background:var(--drop-wash);color:var(--drop)">skip: ${esc(w)}</span>`).join("")}
+            ${!(f.include || []).length && !(f.exclude || []).length ? `<span class="chip" style="background:var(--cobalt-wash);color:var(--cobalt)">all episodes</span>` : ""}
+          </div>
+          <div class="actions">
+            <button class="btn" type="button" data-act="copy" data-i="${i}">Copy URL</button>
+            <button class="btn" type="button" data-act="edit" data-i="${i}" ${haveSettings() ? "" : "disabled"}>Edit</button>
+            <button class="btn danger" type="button" data-act="delete" data-i="${i}" ${haveSettings() ? "" : "disabled"}>Delete</button>
+          </div>
+        </div>
+      </li>`).join("");
+    list.onclick = async e => {
+      const b = e.target.closest("button[data-act]"); if (!b) return;
+      const f = feeds[+b.dataset.i];
+      if (b.dataset.act === "copy") copy(feedUrl(f.id));
+      if (b.dataset.act === "edit") openEditor(f, f.id);
+      if (b.dataset.act === "delete") {
+        if (!confirm(`Delete "${f.title || f.id}"? Podcast apps subscribed to it will stop getting episodes.`)) return;
+        b.disabled = true;
+        try { await updateConfig(all => all.filter(x => x.id !== f.id), `Delete feed: ${f.title || f.id}`); toast("Deleted"); loadFeeds(); }
+        catch (err) { b.disabled = false; st.className = "status err"; st.textContent = err.message; }
+      }
+    };
+  }
+
+  // ---------- settings dialog ----------
+  let saveAfterSettings = false;
+  function openSettings(thenSave = false) {
+    saveAfterSettings = thenSave;
+    $("#sOwner").value = settings.owner; $("#sRepo").value = settings.repo; $("#sToken").value = settings.token;
+    $("#settings").showModal();
+  }
+  $("#settingsForm").addEventListener("submit", e => {
+    if (e.submitter?.value !== "save") return;
+    settings.owner = $("#sOwner").value.trim();
+    settings.repo = $("#sRepo").value.trim();
+    settings.token = $("#sToken").value.trim();
+    if ($("#sRemember").checked) {
+      store.set("fs.owner", settings.owner); store.set("fs.repo", settings.repo); store.set("fs.token", settings.token);
+    } else { store.del("fs.token"); }
+    toast("Settings saved");
+    if (saveAfterSettings && haveSettings()) setTimeout(() => $("#saveBtn").click(), 50);
+    if (!views.feeds.hidden) loadFeeds();
+  });
+
+  // ---------- nav ----------
+  $("#navNew").addEventListener("click", () => { show("search"); $("#q").focus(); });
+  $("#navFeeds").addEventListener("click", () => { show("feeds"); loadFeeds(); });
+  $("#navSettings").addEventListener("click", () => openSettings(false));
+
+  // Missing or broken artwork falls back to a plain tile.
+  document.addEventListener("error", e => {
+    const img = e.target;
+    if (img.tagName === "IMG" && img.classList.contains("art") && !img.dataset.fallback) {
+      img.dataset.fallback = "1"; img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+    }
+  }, true);
+
+  show("search");
+})();
+</script>
+</body>
+</html>
