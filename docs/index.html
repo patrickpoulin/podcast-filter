@@ -293,7 +293,7 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     </div>
 
     <form class="interest" id="interestForm" novalidate hidden>
-      <label for="interestEmail">Would you prefer a paid version of this? Enter your email here and I'll see if there's enough interest.</label>
+      <label for="interestEmail">Would you prefer a hosted and paid version of this? Enter your email here and I'll see if there's enough interest.</label>
       <div class="interest-row">
         <input id="interestEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
         <button class="btn primary" type="submit">Count me in</button>
@@ -876,7 +876,7 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     const isHome = host === "patrickpoulin.github.io" || !host.endsWith(".github.io");
     const form = $("#interestForm");
     form.hidden = !isHome;
-    const to = ["patrick.r.poulin", "gmail.com"].join("@"); // assembled here to keep it out of the page source
+    const to = ["loucheproductions", "gmail.com"].join("@"); // assembled here to keep it out of the page source
     form.addEventListener("submit", e => {
       e.preventDefault();
       const email = $("#interestEmail").value.trim();
@@ -888,7 +888,7 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
         return;
       }
       const subject = "Interested in a paid Podcast Filter";
-      const body = `Hi Patrick,\n\nI'd be interested in a paid version of Podcast Filter. You can reach me at ${email}.\n`;
+      const body = `Hi Patrick,\n\nI'd be interested in a hosted, paid version of Podcast Filter. You can reach me at ${email}.\n`;
       location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       msg.className = "interest-msg";
       msg.textContent = "Your email app should open with a message ready to go. Press Send there to finish. Thanks!";
