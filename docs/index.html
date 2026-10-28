@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Feed Sieve</title>
+<title>Podcast Filter</title>
 <meta name="description" content="Make a podcast feed that only has the episodes you want.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -139,9 +139,9 @@ main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 64px; }
 .status { margin: 14px 0 0; font-size: .95rem; }
 .status.err { color: var(--drop); }
 
-/* The sieve: live episode preview */
-.sieve { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
-.sieve-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
+/* Live episode preview */
+.preview { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+.preview-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--line); }
 .tally { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .tally strong { font: 800 2.4rem/1 var(--display); letter-spacing: -0.03em; color: var(--keep); font-variant-numeric: tabular-nums; }
 .tally span { color: var(--ink-soft); }
@@ -199,7 +199,7 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
 <header class="bar">
   <h1 class="brand">
     <svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/><g fill="var(--cobalt)"><circle cx="11" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="21" cy="12" r="2"/><circle cx="13.5" cy="17" r="2"/><circle cx="18.5" cy="17" r="2"/><circle cx="16" cy="22" r="2"/></g></svg>
-    Feed Sieve
+    Podcast Filter
   </h1>
   <nav aria-label="Main">
     <button class="btn quiet" id="navNew" type="button">New feed</button>
@@ -277,8 +277,8 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
         <p class="status" id="saveStatus" aria-live="polite"></p>
       </div>
 
-      <div class="sieve" aria-labelledby="tallyText">
-        <div class="sieve-head">
+      <div class="preview" aria-labelledby="tallyText">
+        <div class="preview-head">
           <div class="tally"><strong id="tallyNum">0</strong><span id="tallyText">episodes kept</span></div>
           <div class="meter" aria-hidden="true"><i id="meterFill"></i></div>
           <div class="filterbar" role="group" aria-label="Show">
@@ -349,9 +349,9 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
   const settings = (() => {
     const d = detectRepo();
     return {
-      owner: store.get("fs.owner") || d.owner || "",
-      repo: store.get("fs.repo") || d.repo || "",
-      token: store.get("fs.token") || "",
+      owner: store.get("pf.owner") || store.get("fs.owner") || d.owner || "",
+      repo: store.get("pf.repo") || store.get("fs.repo") || d.repo || "",
+      token: store.get("pf.token") || store.get("fs.token") || "",
     };
   })();
   const onPages = () => location.hostname.toLowerCase().endsWith(".github.io");
@@ -760,8 +760,9 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     settings.repo = $("#sRepo").value.trim();
     settings.token = $("#sToken").value.trim();
     if ($("#sRemember").checked) {
-      store.set("fs.owner", settings.owner); store.set("fs.repo", settings.repo); store.set("fs.token", settings.token);
-    } else { store.del("fs.token"); }
+      store.set("pf.owner", settings.owner); store.set("pf.repo", settings.repo); store.set("pf.token", settings.token);
+    } else { store.del("pf.token"); }
+    ["owner", "repo", "token"].forEach(k => store.del(`fs.${k}`)); // drop keys from the old Feed Sieve name
     toast("Settings saved");
     if (saveAfterSettings && haveSettings()) setTimeout(() => $("#saveBtn").click(), 50);
     if (!views.feeds.hidden) loadFeeds();

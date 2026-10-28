@@ -1,4 +1,4 @@
-# Feed Sieve: filtered podcast feeds on GitHub Pages
+# Podcast Filter: filtered podcast feeds on GitHub Pages
 
 A small web app plus a GitHub Action. In the app you search for a podcast, choose words that episode titles must or mustn't contain, and get a feed URL to subscribe to in Apple Podcasts (or any app). GitHub rebuilds every filtered feed every hour.
 
@@ -24,7 +24,7 @@ Searching and the episode preview use Apple's public podcast search, which needs
 4. **Build the first feed.** **Actions** tab → **Update filtered feeds** → **Run workflow**. When it turns green, `docs/feeds/the-herd-prime-cuts.xml` appears in the repo.
 5. **Turn on Pages.** **Settings → Pages** → Source **Deploy from a branch**, branch **main**, folder **/docs** → **Save**. After a minute or two the app is live at `https://YOUR-USERNAME.github.io/podcast-filter/`.
 6. **Make an access token for the app.** Open [GitHub's new token page](https://github.com/settings/personal-access-tokens/new):
-   - Name it "Feed Sieve" and pick an expiration (up to a year).
+   - Name it "Podcast Filter" and pick an expiration (up to a year).
    - **Repository access → Only select repositories →** pick this repo.
    - **Permissions → Repository permissions → Contents → Read and write.**
    - **Generate token**, copy it.
