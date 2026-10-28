@@ -1,19 +1,6 @@
 {
   "feeds": [
     {
-      "id": "the-herd-prime-cuts",
-      "title": "The Herd - Prime Cuts",
-      "show_name": "The Herd with Colin Cowherd",
-      "itunes_id": 1042368254,
-      "artwork": "",
-      "source_url": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/1508ddb2-0c9a-42f6-aafe-ae3300346aa9/bf391792-153e-41b3-9d3d-ae3300346ad8/podcast.rss",
-      "include": [
-        "prime cuts"
-      ],
-      "exclude": [],
-      "max_items": 100
-    },
-    {
       "show_name": "The Herd with Colin Cowherd",
       "itunes_id": 1042368254,
       "artwork": "https://is1-ssl.mzstatic.com/image/thumb/Podcasts221/v4/fd/7f/46/fd7f46cd-bb2a-b4f6-5dd4-f73ae19f84ba/mza_4512883432061856003.jpg/600x600bb.jpg",
