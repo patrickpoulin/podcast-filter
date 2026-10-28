@@ -101,7 +101,7 @@ main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 64px; }
 .guide-state { display: inline-block; font-weight: 700; font-size: .9rem; border-radius: 999px; padding: 3px 12px; }
 .guide-state.on { background: var(--keep-wash); color: var(--keep); }
 .guide-state.off { background: var(--cobalt-wash); color: var(--cobalt); }
-.own-copy { margin: 40px 0 0; color: var(--ink-soft); font-size: .95rem; }
+.own-copy { grid-column: 1 / -1; margin: 0 0 4px; color: var(--ink-soft); font-size: .95rem; }
 .interest { margin-top: 20px; max-width: 640px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 22px; }
 .interest label { display: block; font-weight: 700; margin-bottom: 12px; }
 .interest-row { display: flex; gap: 10px; flex-wrap: wrap; }
@@ -255,9 +255,8 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     <p class="status" id="searchStatus" aria-live="polite"></p>
     <ul class="results" id="results"></ul>
 
-    <p class="own-copy">Want your own filtered feeds? You have to host this in your own GitHub. Click here to <a id="ownCopyLink" href="https://github.com/patrickpoulin/podcast-filter#set-up-your-own-copy" target="_blank" rel="noopener">set up your own copy on GitHub</a>, about 15 minutes, no coding.</p>
-
     <div class="guides">
+      <p class="own-copy">Want your own filtered feeds? You have to host this in your own GitHub. Click here to <a id="ownCopyLink" href="https://github.com/patrickpoulin/podcast-filter#set-up-your-own-copy" target="_blank" rel="noopener">set up your own copy on GitHub</a>, about 15 minutes, no coding.</p>
       <section class="guide" id="tokenGuide" aria-labelledby="tokenGuideTitle">
         <h3 id="tokenGuideTitle">Connect GitHub to save feeds</h3>
         <p class="guide-state" id="tokenState"></p>
