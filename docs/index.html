@@ -102,6 +102,14 @@ main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 64px; }
 .guide-state.on { background: var(--keep-wash); color: var(--keep); }
 .guide-state.off { background: var(--cobalt-wash); color: var(--cobalt); }
 .own-copy { margin: 28px 0 0; color: var(--ink-soft); font-size: .95rem; }
+.interest { margin-top: 20px; max-width: 640px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 20px 22px; }
+.interest label { display: block; font-weight: 700; margin-bottom: 12px; }
+.interest-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.interest-row input { flex: 1 1 220px; min-width: 0; border: 1px solid var(--line); background: var(--fog); border-radius: var(--radius-sm); padding: 11px 14px; }
+.interest-row input:focus { border-color: var(--cobalt); outline: none; box-shadow: 0 0 0 3px var(--cobalt-wash); }
+.interest-msg { margin: 10px 0 0; font-size: .92rem; color: var(--ink-soft); }
+.interest-msg:empty { display: none; }
+.interest-msg.err { color: var(--drop); }
 
 /* Search */
 .search { position: relative; max-width: 640px; }
@@ -281,7 +289,16 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
         <p class="guide-note">Then unfollow the original show so you stop getting the episodes you filtered out. New episodes show up within about an hour of being released.</p>
       </section>
     </div>
-    <p class="own-copy">Want your own filtered feeds? This site is free to copy. <a id="ownCopyLink" href="https://github.com/patrickpoulin/podcast-filter#set-up-your-own-copy" target="_blank" rel="noopener">Set up your own copy on GitHub</a>, about 15 minutes, no coding.</p>
+    <p class="own-copy">Want your own filtered feeds? You have to host this in your own GitHub. Click here to <a id="ownCopyLink" href="https://github.com/patrickpoulin/podcast-filter#set-up-your-own-copy" target="_blank" rel="noopener">set up your own copy on GitHub</a>, about 15 minutes, no coding.</p>
+
+    <form class="interest" id="interestForm" novalidate hidden>
+      <label for="interestEmail">Would you prefer a paid version of this? Enter your email here and I'll see if there's enough interest.</label>
+      <div class="interest-row">
+        <input id="interestEmail" type="email" autocomplete="email" placeholder="you@example.com" required>
+        <button class="btn primary" type="submit">Count me in</button>
+      </div>
+      <p class="interest-msg" id="interestMsg" aria-live="polite"></p>
+    </form>
   </section>
 
   <!-- Editor -->
@@ -850,6 +867,32 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
   }
   $("#guideSettings").addEventListener("click", () => openSettings(false));
   { const d = detectRepo(); if (d.owner && d.repo) $("#ownCopyLink").href = `https://github.com/${d.owner}/${d.repo}#set-up-your-own-copy`; }
+
+  // Paid-version interest: opens the visitor's email app with a message to Patrick.
+  // Only shown on Patrick's own site, so forks don't send signups his way.
+  {
+    const host = location.hostname.toLowerCase();
+    const isHome = host === "patrickpoulin.github.io" || !host.endsWith(".github.io");
+    const form = $("#interestForm");
+    form.hidden = !isHome;
+    const to = ["patrick.r.poulin", "gmail.com"].join("@"); // assembled here to keep it out of the page source
+    form.addEventListener("submit", e => {
+      e.preventDefault();
+      const email = $("#interestEmail").value.trim();
+      const msg = $("#interestMsg");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        msg.className = "interest-msg err";
+        msg.textContent = "Enter an email address like you@example.com.";
+        $("#interestEmail").focus();
+        return;
+      }
+      const subject = "Interested in a paid Podcast Filter";
+      const body = `Hi Patrick,\n\nI'd be interested in a paid version of Podcast Filter. You can reach me at ${email}.\n`;
+      location.href = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      msg.className = "interest-msg";
+      msg.textContent = "Your email app should open with a message ready to go. Press Send there to finish. Thanks!";
+    });
+  }
   updateTokenState();
 
   show("search");
