@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Podcast Filter</title>
 <meta name="description" content="Make a podcast feed that only has the episodes you want.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&display=swap" rel="stylesheet">
@@ -83,6 +86,22 @@ main { max-width: 1180px; margin: 0 auto; padding: 8px 16px 64px; }
 .intro { max-width: 46ch; margin: 18px 0 26px; }
 .intro h2 { font: 700 clamp(2rem, 5vw, 3.1rem)/1.02 var(--display); letter-spacing: -0.03em; margin: 0 0 12px; }
 .intro p { margin: 0; color: var(--ink-soft); font-size: 1.08rem; }
+
+/* How-to guides on the main page */
+.guides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line); }
+@media (max-width: 860px) { .guides { grid-template-columns: 1fr; } }
+.guide { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 22px 24px; }
+.guide h3 { font: 700 1.3rem/1.2 var(--display); letter-spacing: -0.01em; margin: 0 0 10px; }
+.guide h4 { font: 700 1rem/1.3 var(--body); margin: 18px 0 6px; }
+.guide p { margin: 0 0 12px; color: var(--ink-soft); max-width: 62ch; }
+.guide ol { margin: 0 0 14px; padding-left: 22px; }
+.guide li { margin-bottom: 6px; max-width: 60ch; }
+.guide li::marker { color: var(--cobalt); font-weight: 700; }
+.guide .guide-note { font-size: .9rem; margin: 0; }
+.guide-state { display: inline-block; font-weight: 700; font-size: .9rem; border-radius: 999px; padding: 3px 12px; }
+.guide-state.on { background: var(--keep-wash); color: var(--keep); }
+.guide-state.off { background: var(--cobalt-wash); color: var(--cobalt); }
+.own-copy { margin: 28px 0 0; color: var(--ink-soft); font-size: .95rem; }
 
 /* Search */
 .search { position: relative; max-width: 640px; }
@@ -227,6 +246,42 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     </form>
     <p class="status" id="searchStatus" aria-live="polite"></p>
     <ul class="results" id="results"></ul>
+
+    <div class="guides">
+      <section class="guide" id="tokenGuide" aria-labelledby="tokenGuideTitle">
+        <h3 id="tokenGuideTitle">Connect GitHub to save feeds</h3>
+        <p class="guide-state" id="tokenState"></p>
+        <p>Your filtered feeds are stored in your GitHub repository, so saving one needs a GitHub access token. You only do this once per device.</p>
+        <ol>
+          <li>Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub's new token page</a> and sign in.</li>
+          <li>Give it a name, like "Podcast filter", and pick an expiration date.</li>
+          <li>Under <b>Repository access</b>, choose <b>Only select repositories</b> and pick your <b>podcast-filter</b> repo.</li>
+          <li>Under <b>Permissions</b>, find <b>Contents</b> and set it to <b>Read and write</b>.</li>
+          <li>Click <b>Generate token</b> and copy it. GitHub only shows it once.</li>
+          <li>Here, click <button type="button" class="linkish" id="guideSettings">Settings</button>, paste the token into <b>Access token</b>, and click <b>Save settings</b>.</li>
+        </ol>
+        <p class="guide-note">The token stays in this browser and is only sent to GitHub. It can only change this one repository. Don't share it or post it anywhere.</p>
+      </section>
+
+      <section class="guide" aria-labelledby="appleGuideTitle">
+        <h3 id="appleGuideTitle">Add your feed to Apple Podcasts</h3>
+        <p>After you save a feed, copy its URL. You can find it again any time under <b>Your feeds</b>.</p>
+        <h4>On iPhone or iPad</h4>
+        <ol>
+          <li>Open the Podcasts app and tap <b>Library</b>.</li>
+          <li>Tap the <b>⋯</b> button in the top-right corner, then <b>Follow a Show by URL</b>.</li>
+          <li>Paste the feed URL and tap <b>Follow</b>.</li>
+          <li>Open the show, tap <b>⋯</b>, then <b>Settings</b>, and turn on automatic downloads.</li>
+        </ol>
+        <h4>On a Mac</h4>
+        <ol>
+          <li>Open the Podcasts app and choose <b>File → Follow a Show by URL</b>.</li>
+          <li>Paste the feed URL and click <b>Follow</b>.</li>
+        </ol>
+        <p class="guide-note">Then unfollow the original show so you stop getting the episodes you filtered out. New episodes show up within about an hour of being released.</p>
+      </section>
+    </div>
+    <p class="own-copy">Want your own filtered feeds? This site is free to copy. <a id="ownCopyLink" href="https://github.com/patrickpoulin/podcast-filter#set-up-your-own-copy" target="_blank" rel="noopener">Set up your own copy on GitHub</a>, about 15 minutes, no coding.</p>
   </section>
 
   <!-- Editor -->
@@ -764,6 +819,7 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
     } else { store.del("pf.token"); }
     ["owner", "repo", "token"].forEach(k => store.del(`fs.${k}`)); // drop keys from the old Feed Sieve name
     toast("Settings saved");
+    updateTokenState();
     if (saveAfterSettings && haveSettings()) setTimeout(() => $("#saveBtn").click(), 50);
     if (!views.feeds.hidden) loadFeeds();
   });
@@ -780,6 +836,21 @@ dialog::backdrop { background: rgba(12, 18, 36, .55); }
       img.dataset.fallback = "1"; img.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
     }
   }, true);
+
+  // Token guide: show whether this browser is connected.
+  function updateTokenState() {
+    const el = $("#tokenState");
+    if (haveSettings()) {
+      el.className = "guide-state on";
+      el.textContent = `Connected to ${settings.owner}/${settings.repo} on this device`;
+    } else {
+      el.className = "guide-state off";
+      el.textContent = "Not connected on this device yet";
+    }
+  }
+  $("#guideSettings").addEventListener("click", () => openSettings(false));
+  { const d = detectRepo(); if (d.owner && d.repo) $("#ownCopyLink").href = `https://github.com/${d.owner}/${d.repo}#set-up-your-own-copy`; }
+  updateTokenState();
 
   show("search");
 })();

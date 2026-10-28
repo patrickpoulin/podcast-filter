@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    .ring { stroke: #1C2440; }
+    .holes { fill: #2F5BEA; }
+    @media (prefers-color-scheme: dark) {
+      .ring { stroke: #E7EBF5; }
+      .holes { fill: #7D9BFF; }
+    }
+  </style>
+  <circle class="ring" cx="16" cy="16" r="14" fill="none" stroke-width="2.5"/>
+  <g class="holes">
+    <circle cx="11" cy="12" r="2"/><circle cx="16" cy="12" r="2"/><circle cx="21" cy="12" r="2"/>
+    <circle cx="13.5" cy="17" r="2"/><circle cx="18.5" cy="17" r="2"/>
+    <circle cx="16" cy="22" r="2"/>
+  </g>
+</svg>
